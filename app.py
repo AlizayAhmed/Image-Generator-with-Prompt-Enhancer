@@ -3,33 +3,34 @@ import requests
 from groq import Groq
 import io
 from PIL import Image
+import base64
 
 # ------------------------------
-# Page Configuration
+# PAGE CONFIG
 # ------------------------------
 st.set_page_config(page_title="AI Image Generator with Prompt Enhancer", layout="wide")
 
 st.title("🎨 AI Image Generator with Prompt Enhancer")
-st.write("Type a short prompt — I'll enhance it using AI and generate an image using your selected model.")
+st.write("Type a short prompt — the AI will enhance it and generate an image using your selected provider.")
 
 # ------------------------------
-# Load API Keys Securely
+# API KEYS FROM STREAMLIT SECRETS
 # ------------------------------
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 HUGGINGFACE_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY")
 STABILITY_API_KEY = st.secrets.get("STABILITY_API_KEY")
 
 # ------------------------------
-# Helper Functions
+# PROMPT ENHANCEMENT (GROQ)
 # ------------------------------
 def enhance_prompt_groq(user_prompt):
-    """Enhance user prompt using Groq (text model)"""
+    """Enhance user prompt using Groq LLaMA 3.1 model"""
     try:
         client = Groq(api_key=GROQ_API_KEY)
         response = client.chat.completions.create(
-            model="llama3-8b-8192",  # good general-purpose model
+            model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "You are an AI prompt enhancer for image generation. Add artistic, realistic, and cinematic style details."},
+                {"role": "system", "content": "You are a creative prompt enhancer for AI image generation. Make prompts vivid, cinematic, detailed, and realistic."},
                 {"role": "user", "content": user_prompt}
             ]
         )
@@ -39,11 +40,13 @@ def enhance_prompt_groq(user_prompt):
         st.error(f"Groq prompt enhancement failed: {e}")
         return user_prompt
 
-
+# ------------------------------
+# HUGGING FACE IMAGE GENERATION
+# ------------------------------
 def generate_image_huggingface(prompt):
-    """Generate image from Hugging Face (Stable Diffusion)"""
+    """Generate image using Hugging Face Stable Diffusion"""
     try:
-        api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
+        api_url = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
@@ -58,7 +61,9 @@ def generate_image_huggingface(prompt):
         st.error(f"Hugging Face generation failed: {e}")
         return None
 
-
+# ------------------------------
+# STABILITY AI IMAGE GENERATION
+# ------------------------------
 def generate_image_stability(prompt):
     """Generate image using Stability AI API"""
     try:
@@ -76,9 +81,12 @@ def generate_image_stability(prompt):
         }
 
         response = requests.post(api_url, headers=headers, json=payload)
+        if response.status_code != 200:
+            st.error(f"Stability AI Error: {response.text}")
+            return None
+
         data = response.json()
         if "artifacts" in data and len(data["artifacts"]) > 0:
-            import base64
             image_base64 = data["artifacts"][0]["base64"]
             image_bytes = base64.b64decode(image_base64)
             return Image.open(io.BytesIO(image_bytes))
@@ -89,13 +97,12 @@ def generate_image_stability(prompt):
         st.error(f"Stability AI generation failed: {e}")
         return None
 
-
 # ------------------------------
-# UI Components
+# APP UI
 # ------------------------------
 user_prompt = st.text_area("📝 Enter your prompt:", height=100)
 model_choice = st.selectbox(
-    "🧠 Select Image Generation API",
+    "🧠 Select Image Generation Provider",
     ["Hugging Face (Stable Diffusion)", "Stability AI"]
 )
 
@@ -103,7 +110,7 @@ if st.button("✨ Generate Image"):
     if not user_prompt.strip():
         st.warning("Please enter a prompt first.")
     else:
-        with st.spinner("Enhancing your prompt using Groq..."):
+        with st.spinner("Enhancing prompt using Groq..."):
             enhanced = enhance_prompt_groq(user_prompt)
             st.write("**Enhanced Prompt:**", enhanced)
 
@@ -114,7 +121,7 @@ if st.button("✨ Generate Image"):
                 img = generate_image_stability(enhanced)
 
         if img:
-            st.image(img, caption="Generated Image", use_container_width=True)
+            st.image(img, caption="🖼️ Generated Image", use_container_width=True)
 
             # Download Button
             buf = io.BytesIO()
@@ -128,17 +135,17 @@ if st.button("✨ Generate Image"):
             )
 
 # ------------------------------
-# Optional: Generation History
+# HISTORY PANEL
 # ------------------------------
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
-if st.button("📜 Save to History"):
+if st.button("📜 Save Prompt to History"):
     if user_prompt:
-        st.session_state["history"].append({"prompt": user_prompt})
-        st.success("Saved prompt to history!")
+        st.session_state["history"].append(user_prompt)
+        st.success("Saved to history!")
 
 if st.session_state["history"]:
     st.subheader("🕓 Generation History")
-    for item in st.session_state["history"]:
-        st.write("•", item["prompt"])
+    for p in st.session_state["history"]:
+        st.write("•", p)
