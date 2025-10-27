@@ -47,7 +47,7 @@ def generate_image_huggingface(prompt):
     """Generate image using Hugging Face Stable Diffusion (new API)"""
     try:
         # New recommended model
-        api_url = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
+        api_url = "https://api-inference.huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
