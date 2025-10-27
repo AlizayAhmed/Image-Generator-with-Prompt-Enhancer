@@ -44,29 +44,23 @@ def enhance_prompt_groq(user_prompt):
 # HUGGING FACE IMAGE GENERATION (updated)
 # ------------------------------
 def generate_image_huggingface(prompt):
-    """Generate image using Hugging Face Stable Diffusion (new API)"""
+    """Generate image using Hugging Face Stable Diffusion v1-5"""
     try:
-        # New recommended model
-        api_url = "https://api-inference.huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
+        api_url = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
         response = requests.post(api_url, headers=headers, json=payload)
         if response.status_code == 200:
-            # Hugging Face sometimes returns binary, sometimes base64-encoded JSON
-            try:
-                image_bytes = response.content
-                return Image.open(io.BytesIO(image_bytes))
-            except:
-                img_data = response.json()[0]["generated_image"]
-                img_bytes = base64.b64decode(img_data)
-                return Image.open(io.BytesIO(img_bytes))
+            image_bytes = response.content
+            return Image.open(io.BytesIO(image_bytes))
         else:
             st.error(f"Hugging Face API Error: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Hugging Face generation failed: {e}")
         return None
+
 
 # ------------------------------
 # STABILITY AI IMAGE GENERATION (updated)
