@@ -44,14 +44,15 @@ def enhance_prompt_groq(user_prompt):
 # HUGGING FACE IMAGE GENERATION (updated)
 # ------------------------------
 def generate_image_huggingface(prompt):
-    """Generate image using a guaranteed public Hugging Face model"""
+    """Generate image using Hugging Face SDXL public model"""
     try:
-        api_url = "https://api-inference.huggingface.co/models/prompthero/openjourney"
+        api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
         response = requests.post(api_url, headers=headers, json=payload)
         if response.status_code == 200:
+            # SDXL returns bytes directly
             return Image.open(io.BytesIO(response.content))
         else:
             st.error(f"Hugging Face API Error: {response.status_code} - {response.text}")
@@ -62,20 +63,26 @@ def generate_image_huggingface(prompt):
 
 
 
+
 # ------------------------------
 # STABILITY AI IMAGE GENERATION (updated)
 # ------------------------------
 def generate_image_stability(prompt):
-    """Generate image using Stability AI new model name"""
+    """Generate image using Stability AI v2beta endpoint"""
     try:
-        api_url = "https://api.stability.ai/v2beta/stable-image/generate/core"
+        api_url = "https://api.stability.ai/v2beta/stable-image/generate"
         headers = {
             "Authorization": f"Bearer {STABILITY_API_KEY}",
-            "Accept": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
+            "model": "stable-diffusion-xl-1024-v1-0",  # official public SDXL
             "prompt": prompt,
-            "output_format": "png",
+            "width": 512,
+            "height": 512,
+            "samples": 1,
+            "cfg_scale": 7.0,
+            "steps": 30
         }
 
         response = requests.post(api_url, headers=headers, json=payload)
@@ -84,16 +91,15 @@ def generate_image_stability(prompt):
             return None
 
         data = response.json()
-        image_base64 = data.get("image")
-        if image_base64:
-            image_bytes = base64.b64decode(image_base64)
-            return Image.open(io.BytesIO(image_bytes))
-        else:
-            st.error("No image data returned from Stability AI.")
-            return None
+        # SDXL returns base64 string in artifacts[0].base64
+        image_base64 = data["artifacts"][0]["base64"]
+        image_bytes = base64.b64decode(image_base64)
+        return Image.open(io.BytesIO(image_bytes))
+
     except Exception as e:
         st.error(f"Stability AI generation failed: {e}")
         return None
+
 
 # ------------------------------
 # APP UI
