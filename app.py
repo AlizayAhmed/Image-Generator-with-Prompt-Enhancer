@@ -46,7 +46,7 @@ def enhance_prompt_groq(user_prompt):
 def generate_image_huggingface(prompt):
     """Generate image using Hugging Face Stable Diffusion v1-5"""
     try:
-        api_url = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
+        api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
