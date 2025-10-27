@@ -41,57 +41,61 @@ def enhance_prompt_groq(user_prompt):
         return user_prompt
 
 # ------------------------------
-# HUGGING FACE IMAGE GENERATION
+# HUGGING FACE IMAGE GENERATION (updated)
 # ------------------------------
 def generate_image_huggingface(prompt):
-    """Generate image using Hugging Face Stable Diffusion"""
+    """Generate image using Hugging Face Stable Diffusion (new API)"""
     try:
-        api_url = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
+        # New recommended model
+        api_url = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
         headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         payload = {"inputs": prompt}
 
         response = requests.post(api_url, headers=headers, json=payload)
         if response.status_code == 200:
-            image_bytes = response.content
-            return Image.open(io.BytesIO(image_bytes))
+            # Hugging Face sometimes returns binary, sometimes base64-encoded JSON
+            try:
+                image_bytes = response.content
+                return Image.open(io.BytesIO(image_bytes))
+            except:
+                img_data = response.json()[0]["generated_image"]
+                img_bytes = base64.b64decode(img_data)
+                return Image.open(io.BytesIO(img_bytes))
         else:
-            st.error(f"Hugging Face API Error: {response.text}")
+            st.error(f"Hugging Face API Error: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Hugging Face generation failed: {e}")
         return None
 
 # ------------------------------
-# STABILITY AI IMAGE GENERATION
+# STABILITY AI IMAGE GENERATION (updated)
 # ------------------------------
 def generate_image_stability(prompt):
-    """Generate image using Stability AI API"""
+    """Generate image using Stability AI new model name"""
     try:
-        api_url = "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image"
+        api_url = "https://api.stability.ai/v2beta/stable-image/generate/core"
         headers = {
             "Authorization": f"Bearer {STABILITY_API_KEY}",
             "Accept": "application/json"
         }
         payload = {
-            "text_prompts": [{"text": prompt}],
-            "cfg_scale": 7,
-            "height": 512,
-            "width": 512,
-            "samples": 1
+            "prompt": prompt,
+            "output_format": "png",
         }
 
         response = requests.post(api_url, headers=headers, json=payload)
         if response.status_code != 200:
-            st.error(f"Stability AI Error: {response.text}")
+            st.error(f"Stability AI Error: {response.status_code} - {response.text}")
             return None
 
         data = response.json()
-        if "artifacts" in data and len(data["artifacts"]) > 0:
-            image_base64 = data["artifacts"][0]["base64"]
+        image_base64 = data.get("image")
+        if image_base64:
             image_bytes = base64.b64decode(image_base64)
             return Image.open(io.BytesIO(image_bytes))
         else:
-            st.error("Stability AI returned no image data.")
+            st.error("No image data returned from Stability AI.")
             return None
     except Exception as e:
         st.error(f"Stability AI generation failed: {e}")
@@ -133,19 +137,3 @@ if st.button("✨ Generate Image"):
                 file_name="generated_image.png",
                 mime="image/png"
             )
-
-# ------------------------------
-# HISTORY PANEL
-# ------------------------------
-if "history" not in st.session_state:
-    st.session_state["history"] = []
-
-if st.button("📜 Save Prompt to History"):
-    if user_prompt:
-        st.session_state["history"].append(user_prompt)
-        st.success("Saved to history!")
-
-if st.session_state["history"]:
-    st.subheader("🕓 Generation History")
-    for p in st.session_state["history"]:
-        st.write("•", p)
