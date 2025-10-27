@@ -8,23 +8,21 @@ import base64
 # ------------------------------
 # PAGE CONFIG
 # ------------------------------
-st.set_page_config(page_title="AI Image Generator with Prompt Enhancer", layout="wide")
+st.set_page_config(page_title="AI Image Generator", layout="wide")
 
 st.title("🎨 AI Image Generator with Prompt Enhancer")
-st.write("Type a short prompt — the AI will enhance it and generate an image using your selected provider.")
+st.write("Type a short prompt — the AI will enhance it and generate an image.")
 
 # ------------------------------
 # API KEYS FROM STREAMLIT SECRETS
 # ------------------------------
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
-HUGGINGFACE_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY")
 STABILITY_API_KEY = st.secrets.get("STABILITY_API_KEY")
 
 # ------------------------------
 # PROMPT ENHANCEMENT (GROQ)
 # ------------------------------
 def enhance_prompt_groq(user_prompt):
-    """Enhance user prompt using Groq LLaMA 3.1 model"""
     try:
         client = Groq(api_key=GROQ_API_KEY)
         response = client.chat.completions.create(
@@ -34,41 +32,15 @@ def enhance_prompt_groq(user_prompt):
                 {"role": "user", "content": user_prompt}
             ]
         )
-        enhanced_prompt = response.choices[0].message.content.strip()
-        return enhanced_prompt
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        st.error(f"Groq prompt enhancement failed: {e}")
+        st.error(f"Groq enhancement failed: {e}")
         return user_prompt
 
 # ------------------------------
-# HUGGING FACE IMAGE GENERATION (updated)
-# ------------------------------
-def generate_image_huggingface(prompt):
-    """Generate image using Hugging Face SDXL public model"""
-    try:
-        api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
-        payload = {"inputs": prompt}
-
-        response = requests.post(api_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            # SDXL returns bytes directly
-            return Image.open(io.BytesIO(response.content))
-        else:
-            st.error(f"Hugging Face API Error: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        st.error(f"Hugging Face generation failed: {e}")
-        return None
-
-
-
-
-# ------------------------------
-# STABILITY AI IMAGE GENERATION (updated)
+# STABILITY AI IMAGE GENERATION
 # ------------------------------
 def generate_image_stability(prompt):
-    """Generate image using Stability AI v2beta endpoint"""
     try:
         api_url = "https://api.stability.ai/v2beta/stable-image/generate"
         headers = {
@@ -76,7 +48,7 @@ def generate_image_stability(prompt):
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "stable-diffusion-xl-1024-v1-0",  # official public SDXL
+            "model": "stable-diffusion-xl-1024-v1-0",
             "prompt": prompt,
             "width": 512,
             "height": 512,
@@ -91,7 +63,6 @@ def generate_image_stability(prompt):
             return None
 
         data = response.json()
-        # SDXL returns base64 string in artifacts[0].base64
         image_base64 = data["artifacts"][0]["base64"]
         image_bytes = base64.b64decode(image_base64)
         return Image.open(io.BytesIO(image_bytes))
@@ -100,29 +71,21 @@ def generate_image_stability(prompt):
         st.error(f"Stability AI generation failed: {e}")
         return None
 
-
 # ------------------------------
 # APP UI
 # ------------------------------
 user_prompt = st.text_area("📝 Enter your prompt:", height=100)
-model_choice = st.selectbox(
-    "🧠 Select Image Generation Provider",
-    ["Hugging Face (Stable Diffusion)", "Stability AI"]
-)
 
 if st.button("✨ Generate Image"):
     if not user_prompt.strip():
         st.warning("Please enter a prompt first.")
     else:
-        with st.spinner("Enhancing prompt using Groq..."):
+        with st.spinner("Enhancing prompt with Groq..."):
             enhanced = enhance_prompt_groq(user_prompt)
             st.write("**Enhanced Prompt:**", enhanced)
 
-        with st.spinner(f"Generating image via {model_choice}..."):
-            if model_choice == "Hugging Face (Stable Diffusion)":
-                img = generate_image_huggingface(enhanced)
-            else:
-                img = generate_image_stability(enhanced)
+        with st.spinner("Generating image via Stability AI..."):
+            img = generate_image_stability(enhanced)
 
         if img:
             st.image(img, caption="🖼️ Generated Image", use_container_width=True)
